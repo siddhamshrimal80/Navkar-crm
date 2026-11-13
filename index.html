@@ -22,7 +22,7 @@ input,textarea,select{width:100%;border:1px solid #d9d2c9;border-radius:10px;pad
 label{display:block;font-size:13px;font-weight:650;margin-top:8px}.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:8px 3px calc(8px + env(safe-area-inset-bottom));z-index:5}
 nav button{background:transparent;color:#706a62;padding:8px 5px;font-size:11px;flex:1}nav button.active{color:var(--copper);background:#f5eee6}
-.item{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}.item:last-child{border:0}.avatar{width:38px;height:38px;border-radius:50%;background:#eee5da;color:#946d48;display:grid;place-items:center;font-weight:700}
+.item{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}.item:last-child{border:0}.customer-tap{cursor:pointer;user-select:none;-webkit-user-select:none}.customer-tap:active{background:#faf7f2}.avatar{width:38px;height:38px;border-radius:50%;background:#eee5da;color:#946d48;display:grid;place-items:center;font-weight:700}
 .item .grow{flex:1;min-width:0}.item strong{display:block}.pill{font-size:11px;border-radius:20px;padding:4px 8px;background:#f1ebe3;color:#8a603b}
 #toast{position:fixed;bottom:80px;left:16px;right:16px;background:#242320;color:white;padding:12px;border-radius:10px;display:none;z-index:9}
 .small{font-size:12px}.center{text-align:center;padding:28px 8px}.topline{display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -76,6 +76,11 @@ a{color:var(--green);font-weight:650;text-decoration:none}
    <button class="copper" id="saveCustomer" style="width:100%">Save customer</button>
   </div>
  </div>
+ <div id="customerDetail" class="hidden">
+  <div class="topline"><h1>Customer details</h1><button class="secondary" onclick="showTab('customers')">Back</button></div>
+  <div class="card" id="customerDetailCard">Loading customer…</div>
+  <div class="card"><h2>Purchase history</h2><div id="customerDetailPurchases" class="muted">Loading…</div></div>
+ </div>
  <div id="purchases" class="hidden">
   <h1>Purchase history</h1><p class="muted">Select a customer to add a purchase or view their recorded purchases.</p>
   <div class="card"><label>Customer</label><select id="purchaseCustomer"></select><label>Product name</label><input id="pProduct" placeholder="e.g. Mixer Grinder"><div class="row"><div><label>Bill amount (₹)</label><input id="pAmount" type="number" min="0" step="0.01"></div><div><label>Paid amount (₹)</label><input id="pPaid" type="number" min="0" step="0.01" value="0"></div></div><div class="row"><div><label>Purchase date</label><input id="pDate" type="date"></div><div><label>Warranty (months)</label><input id="pWarranty" type="number" min="0" value="0"></div></div><button class="copper" id="savePurchase" style="width:100%">Save purchase</button></div>
@@ -95,7 +100,7 @@ let sb=null, customers=[];
 const $=id=>document.getElementById(id);
 function toast(s){$('toast').textContent=s;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',3500)}
 function section(id){['setup','login','app'].forEach(x=>$(x).classList.toggle('hidden',x!==id));$('nav').classList.toggle('hidden',id!=='app')}
-function showTab(id){['dashboard','customers','add','purchases','reminders'].forEach(x=>$(x).classList.toggle('hidden',x!==id));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));if(id==='customers')renderCustomers();if(id==='purchases')loadPurchases();if(id==='reminders')loadReminders()}
+function showTab(id){['dashboard','customers','add','customerDetail','purchases','reminders'].forEach(x=>$(x).classList.toggle('hidden',x!==id));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));if(id==='customers')renderCustomers();if(id==='purchases')loadPurchases();if(id==='reminders')loadReminders()}
 document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
 function initClient(url,key){if(!window.supabase){toast('Connection library did not load. Check internet and reload.');return false}sb=window.supabase.createClient(url,key);return true}
 async function start(){
@@ -112,39 +117,20 @@ $('refresh').onclick=loadAll;
 async function loadAll(){await loadCustomers();showTab('dashboard')}
 async function loadCustomers(){let {data,error}=await sb.from('customers').select('*').order('created_at',{ascending:false});if(error){toast(error.message);return}customers=data||[];$('customerCount').textContent=customers.length;let {data:p}=await sb.from('purchases').select('amount');let total=(p||[]).reduce((a,x)=>a+Number(x.amount||0),0);$('salesTotal').textContent='₹'+total.toLocaleString('en-IN');$('recentList').innerHTML=customers.slice(0,4).map(c=>`<div class="item"><div class="avatar">${esc(c.name[0]||'C')}</div><div class="grow"><strong>${esc(c.name)}</strong><span class="muted">${esc(c.phone)}</span></div></div>`).join('')||'No customers yet.';renderCustomers();fillCustomerSelect()}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function renderCustomers(){let q=($('search').value||'').toLowerCase();let list=customers.filter(c=>(c.name+' '+c.phone).toLowerCase().includes(q));$('customerList').innerHTML=list.map(c=>`<div class="item"><div class="avatar">${esc(c.name[0]||'C')}</div><div class="grow"><strong>${esc(c.name)}</strong><span class="muted">${esc(c.phone)}</span><div class="small muted">${esc(c.address||'')}</div></div><a href="https://wa.me/91${encodeURIComponent(c.phone.replace(/\D/g,''))}" target="_blank" rel="noopener">WhatsApp</a></div>`).join('')||'<div class="center muted">No customers found.</div>'}
-$('search').addEventListener('input',renderCustomers);
-$('saveCustomer').onclick=async()=>{let name=$('cName').value.trim(),phone=$('cPhone').value.replace(/\D/g,'');if(!name||!/^[6-9]\d{9}$/.test(phone)){toast('Enter customer name and valid 10-digit Indian mobile.');return}let {error}=await sb.from('customers').insert({name,phone,address:$('cAddress').value.trim()||null,birthday:$('cBirthday').value||null,anniversary:$('cAnniversary').value||null,notes:$('cNotes').value.trim()||null});if(error){toast(error.message);return}['cName','cPhone','cAddress','cBirthday','cAnniversary','cNotes'].forEach(x=>$(x).value='');toast('Customer saved.');await loadCustomers();showTab('customers')};
-function fillCustomerSelect(){$('purchaseCustomer').innerHTML=customers.map(c=>`<option value="${c.id}">${esc(c.name)} · ${esc(c.phone)}</option>`).join('')}
-$('purchaseCustomer').onchange=loadPurchases;
-$('savePurchase').onclick=async()=>{let customer_id=$('purchaseCustomer').value,product_name=$('pProduct').value.trim(),amount=Number($('pAmount').value),paid_amount=Number($('pPaid').value||0),purchase_date=$('pDate').value||new Date().toISOString().slice(0,10),warranty_months=Number($('pWarranty').value||0);if(!customer_id||!product_name||!Number.isFinite(amount)||amount<0||paid_amount<0||paid_amount>amount){toast('Check customer, product and amounts.');return}let end=null;if(warranty_months){let d=new Date(purchase_date+'T12:00:00');d.setMonth(d.getMonth()+warranty_months);end=d.toISOString().slice(0,10)}let {error}=await sb.from('purchases').insert({customer_id,product_name,amount,paid_amount,purchase_date,warranty_months,warranty_end:end});if(error){toast(error.message);return}toast('Purchase saved.');$('pProduct').value='';$('pAmount').value='';$('pPaid').value='0';$('pWarranty').value='0';await loadPurchases()};
-async function loadPurchases(){let id=$('purchaseCustomer').value;if(!id){$('purchaseList').textContent='Add a customer first.';return}let {data,error}=await sb.from('purchases').select('*').eq('customer_id',id).order('purchase_date',{ascending:false});if(error){$('purchaseList').textContent=error.message;return}$('purchaseList').innerHTML=(data||[]).map(p=>`<div class="item"><div class="grow"><strong>${esc(p.product_name)}</strong><span class="muted">${esc(p.purchase_date)} · Warranty: ${p.warranty_months||0} months</span></div><div><strong>₹${Number(p.amount).toLocaleString('en-IN')}</strong><div class="muted small">Paid ₹${Number(p.paid_amount).toLocaleString('en-IN')}</div></div></div>`).join('')||'No purchases for this customer.'}
-async function loadReminders(){
- let {data,error}=await sb.from('customers').select('id,name,phone,birthday,anniversary');
- if(error){toast(error.message);return}
- let today=new Date(),todayKey=today.toISOString().slice(0,10),md=d=>d?d.slice(5):'',key=today.toISOString().slice(5,10);
- let upcoming=(data||[]).filter(c=>md(c.birthday)===key||md(c.anniversary)===key);
- $('reminderList').innerHTML=upcoming.map(c=>`<div class="item"><div class="grow"><strong>${esc(c.name)}</strong><span class="muted">${md(c.birthday)===key?'Birthday':'Anniversary'}</span></div><a href="https://wa.me/91${encodeURIComponent(c.phone.replace(/\D/g,''))}" target="_blank" rel="noopener">WhatsApp</a></div>`).join('')||'No birthdays or anniversaries today.';
- let [{data:purchases,error:purchaseError},{data:allCustomers,error:customerError}]=await Promise.all([
-   sb.from('purchases').select('id,customer_id,product_name,purchase_date'),
-   sb.from('customers').select('id,name,phone')
- ]);
- if(purchaseError||customerError){toast((purchaseError||customerError).message);return}
- let byId=Object.fromEntries((allCustomers||[]).map(c=>[c.id,c]));
- const addDays=(date,n)=>{let d=new Date(date+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
- const sent=JSON.parse(localStorage.getItem('navkar_feedback_sent')||'{}');
- const records=(purchases||[]).map(p=>({...p,customer:byId[p.customer_id],due:addDays(p.purchase_date,30)})).filter(p=>p.customer);
- const due=records.filter(p=>p.due<=todayKey&&!sent[p.id]).sort((a,b)=>a.due.localeCompare(b.due));
- const soon=records.filter(p=>p.due>todayKey&&p.due<=addDays(todayKey,7)&&!sent[p.id]).sort((a,b)=>a.due.localeCompare(b.due));
- const feedbackLink=p=>{
-   const phone=p.customer.phone.replace(/\D/g,'');
-   const intl=phone.length===10?'91'+phone:phone;
-   const msg=`Namaste ${p.customer.name} ji! 🙏 Aapne NAVKAR Kitchen & Home Appliances se ${p.product_name} kharida tha. Humein aapka experience jaana hai. Product kaisa chal raha hai? Kripya apna feedback zaroor dein. Dhanyavaad!`;
-   return `https://wa.me/${intl}?text=${encodeURIComponent(msg)}`;
- };
- const row=p=>`<div class="item"><div class="grow"><strong>${esc(p.customer.name)}</strong><span class="muted">${esc(p.product_name)} · Purchase: ${esc(p.purchase_date)} · Feedback due: ${esc(p.due)}</span><div class="row" style="margin-top:8px"><a href="${feedbackLink(p)}" target="_blank" rel="noopener">Send on WhatsApp</a><button class="secondary" style="padding:7px 9px;font-size:12px" onclick="markFeedbackSent('${p.id}')">Mark sent</button></div></div></div>`;
- $('feedbackDueList').innerHTML=due.map(row).join('')||'Abhi koi feedback reminder due nahi hai.';
- $('feedbackUpcomingList').innerHTML=soon.map(row).join('')||'Agale 7 din mein koi feedback reminder nahi hai.';
+function renderCustomers(){
+ let q=($('search').value||'').toLowerCase();
+ let list=customers.filter(c=>(c.name+' '+c.phone).toLowerCase().includes(q));
+ $('customerList').innerHTML=list.map(c=>`<div class="item customer-tap" role="button" tabindex="0" onclick="openCustomer('${c.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCustomer('${c.id}')}"><div class="avatar">${esc(c.name[0]||'C')}</div><div class="grow"><strong>${esc(c.name)}</strong><span class="muted">${esc(c.phone)}</span><div class="small muted">${esc(c.address||'')}</div><span class="small" style="color:var(--copper)">Tap to view details →</span></div></div>`).join('')||'<div class="center muted">No customers found.</div>';
+}
+async function openCustomer(id){
+ let c=customers.find(x=>x.id===id);
+ if(!c){toast('Customer not found.');return}
+ $('customerDetailCard').innerHTML=`<div class="item"><div class="avatar">${esc(c.name[0]||'C')}</div><div class="grow"><strong>${esc(c.name)}</strong><span class="muted">${esc(c.phone)}</span></div></div><p><strong>Address:</strong> ${esc(c.address||'Not added')}</p><p><strong>Birthday:</strong> ${esc(c.birthday||'Not added')}</p><p><strong>Anniversary:</strong> ${esc(c.anniversary||'Not added')}</p><p><strong>Notes:</strong> ${esc(c.notes||'None')}</p><a href="https://wa.me/91${encodeURIComponent(c.phone.replace(/\D/g,''))}" target="_blank" rel="noopener">Chat on WhatsApp</a>`;
+ $('customerDetailPurchases').textContent='Loading…';
+ showTab('customerDetail');
+ let {data,error}=await sb.from('purchases').select('*').eq('customer_id',id).order('purchase_date',{ascending:false});
+ if(error){$('customerDetailPurchases').textContent=error.message;return}
+ $('customerDetailPurchases').innerHTML=(data||[]).map(x=>`<div class="item"><div class="grow"><strong>${esc(x.product_name)}</strong><span class="muted">${esc(x.purchase_date)}</span></div><div><strong>₹${Number(x.amount||0).toLocaleString('en-IN')}</strong><div class="muted small">Paid ₹${Number(x.paid_amount||0).toLocaleString('en-IN')}</div></div></div>`).join('')||'No purchases recorded for this customer.';
 }
 function markFeedbackSent(id){
  let sent=JSON.parse(localStorage.getItem('navkar_feedback_sent')||'{}');
