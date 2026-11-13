@@ -126,20 +126,47 @@ $('search').addEventListener('input',renderCustomers);
 
 async function openCustomer(id){
  let c=customers.find(x=>x.id===id);if(!c){toast('Customer not found.');return}
- $('customerDetailCard').innerHTML=`<div class="item"><div class="avatar">${esc(c.name[0]||'C')}</div><div class="grow"><strong>${esc(c.name)}</strong><span class="muted">${esc(c.phone)}</span></div></div><p><strong>Address:</strong> ${esc(c.address||'Not added')}</p><p><strong>Birthday:</strong> ${esc(c.birthday||'Not added')}</p><p><strong>Anniversary:</strong> ${esc(c.anniversary||'Not added')}</p><p><strong>Notes:</strong> ${esc(c.notes||'None')}</p><a href="https://wa.me/91${encodeURIComponent(c.phone.replace(/\\D/g,''))}" target="_blank" rel="noopener">Chat on WhatsApp</a>`;
+ $('customerDetailCard').innerHTML=`<div class="item"><div class="avatar">${esc(c.name[0]||'C')}</div><div class="grow"><strong>${esc(c.name)}</strong><span class="muted">${esc(c.phone)}</span></div></div><p><strong>Address:</strong> ${esc(c.address||'Not added')}</p><p><strong>Birthday:</strong> ${esc(c.birthday||'Not added')}</p><p><strong>Anniversary:</strong> ${esc(c.anniversary||'Not added')}</p><p><strong>Notes:</strong> ${esc(c.notes||'None')}</p><a href="https://wa.me/91${encodeURIComponent(c.phone.replace(/\\D/g,''))}" target="_blank" rel="noopener">Chat on WhatsApp</a><button class="danger" style="width:100%;margin-top:16px" onclick="deleteCustomer('${c.id}')">Delete this customer</button>`;
  $('customerDetailPurchases').textContent='Loading…';showTab('customerDetail');
  let {data,error}=await sb.from('purchases').select('*').eq('customer_id',id).order('purchase_date',{ascending:false});
  if(error){$('customerDetailPurchases').textContent='Could not load purchases: '+error.message;return}
  const rows=data||[],bill=rows.reduce((a,x)=>a+Number(x.amount||0),0),paid=rows.reduce((a,x)=>a+Number(x.paid_amount||0),0),pending=rows.reduce((a,x)=>a+Math.max(0,Number(x.amount||0)-Number(x.paid_amount||0)),0);
  const summary=`<div class="stats"><div class="stat"><span class="muted">Total bill</span><b>₹${bill.toLocaleString('en-IN')}</b></div><div class="stat"><span class="muted">Total paid</span><b>₹${paid.toLocaleString('en-IN')}</b></div><div class="stat" style="grid-column:1/-1"><span class="muted">Pending amount</span><b style="color:var(--red)">₹${pending.toLocaleString('en-IN')}</b></div></div>`;
- $('customerDetailPurchases').innerHTML=summary+rows.map(x=>{let b=Number(x.amount||0),p=Number(x.paid_amount||0);return `<div class="item"><div class="grow"><strong>${esc(x.product_name)}</strong><span class="muted">${esc(x.purchase_date)}</span></div><div style="text-align:right"><strong>Bill ₹${b.toLocaleString('en-IN')}</strong><div class="muted small">Paid ₹${p.toLocaleString('en-IN')}</div><div class="small" style="color:var(--red)">Pending ₹${Math.max(0,b-p).toLocaleString('en-IN')}</div></div></div>`}).join('')||'No purchases recorded for this customer.';
+ $('customerDetailPurchases').innerHTML=summary+rows.map(x=>{let b=Number(x.amount||0),p=Number(x.paid_amount||0);return `<div class="item"><div class="grow"><strong>${esc(x.product_name)}</strong><span class="muted">${esc(x.purchase_date)}</span></div><div style="text-align:right"><strong>Bill ₹${b.toLocaleString('en-IN')}</strong><div class="muted small">Paid ₹${p.toLocaleString('en-IN')}</div><div class="small" style="color:var(--red)">Pending ₹${Math.max(0,b-p).toLocaleString('en-IN')}</div><button class="danger" style="padding:6px 9px;font-size:11px;margin-top:6px" onclick="deletePurchase('${x.id}','${id}')">Delete</button></div></div>`}).join('')||'No purchases recorded for this customer.';
 }
 
+async function deleteCustomer(id){
+ const c=customers.find(x=>x.id===id);if(!c)return;
+ if(!confirm(`Delete ${c.name} and ALL their purchase records? This cannot be undone.`))return;
+ const {error:purchaseError}=await sb.from('purchases').delete().eq('customer_id',id);
+ if(purchaseError){toast('Could not delete purchase history: '+purchaseError.message);return}
+ const {error}=await sb.from('customers').delete().eq('id',id);
+ if(error){toast('Purchase history was deleted, but customer could not be deleted: '+error.message);return}
+ toast('Customer and their purchase history deleted.');await loadCustomers();showTab('customers');
+}
+async function deletePurchase(purchaseId,customerId){
+ if(!confirm('Delete this purchase record? This cannot be undone.'))return;
+ const fromDetail=!$('customerDetail').classList.contains('hidden');
+ const {error}=await sb.from('purchases').delete().eq('id',purchaseId);
+ if(error){toast('Could not delete purchase: '+error.message);return}
+ toast('Purchase record deleted.');await loadCustomers();if(fromDetail)await openCustomer(customerId);else{showTab('purchases');$('purchaseCustomer').value=customerId;await loadPurchases()}
+}
 $('saveCustomer').onclick=async()=>{let name=$('cName').value.trim(),phone=$('cPhone').value.replace(/\D/g,'');if(!name||!/^[6-9]\d{9}$/.test(phone)){toast('Enter customer name and valid 10-digit Indian mobile.');return}let {error}=await sb.from('customers').insert({name,phone,address:$('cAddress').value.trim()||null,birthday:$('cBirthday').value||null,anniversary:$('cAnniversary').value||null,notes:$('cNotes').value.trim()||null});if(error){toast(error.message);return}['cName','cPhone','cAddress','cBirthday','cAnniversary','cNotes'].forEach(x=>$(x).value='');toast('Customer saved.');await loadCustomers();showTab('customers')};
 function fillCustomerSelect(){$('purchaseCustomer').innerHTML=customers.map(c=>`<option value="${c.id}">${esc(c.name)} · ${esc(c.phone)}</option>`).join('')}
 $('purchaseCustomer').onchange=loadPurchases;
-$('savePurchase').onclick=async()=>{let customer_id=$('purchaseCustomer').value,product_name=$('pProduct').value.trim(),amount=Number($('pAmount').value),paid_amount=Number($('pPaid').value||0),purchase_date=$('pDate').value||new Date().toISOString().slice(0,10),warranty_months=Number($('pWarranty').value||0);if(!customer_id||!product_name||!Number.isFinite(amount)||amount<0||paid_amount<0||paid_amount>amount){toast('Check customer, product and amounts.');return}let end=null;if(warranty_months){let d=new Date(purchase_date+'T12:00:00');d.setMonth(d.getMonth()+warranty_months);end=d.toISOString().slice(0,10)}let {error}=await sb.from('purchases').insert({customer_id,product_name,amount,paid_amount,purchase_date,warranty_months,warranty_end:end});if(error){toast(error.message);return}toast('Purchase saved.');$('pProduct').value='';$('pAmount').value='';$('pPaid').value='0';$('pWarranty').value='0';await loadPurchases()};
-async function loadPurchases(){let id=$('purchaseCustomer').value;if(!id){$('purchaseList').textContent='Add a customer first.';return}let {data,error}=await sb.from('purchases').select('*').eq('customer_id',id).order('purchase_date',{ascending:false});if(error){$('purchaseList').textContent=error.message;return}$('purchaseList').innerHTML=(data||[]).map(p=>`<div class="item"><div class="grow"><strong>${esc(p.product_name)}</strong><span class="muted">${esc(p.purchase_date)} · Warranty: ${p.warranty_months||0} months</span></div><div><strong>₹${Number(p.amount).toLocaleString('en-IN')}</strong><div class="muted small">Paid ₹${Number(p.paid_amount).toLocaleString('en-IN')}</div></div></div>`).join('')||'No purchases for this customer.'}
+$('savePurchase').onclick=async()=>{
+ let customer_id=$('purchaseCustomer').value,product_name=$('pProduct').value.trim(),amount=Number($('pAmount').value),paid_amount=Number($('pPaid').value||0),purchase_date=$('pDate').value||new Date().toISOString().slice(0,10),warranty_months=Number($('pWarranty').value||0);
+ if(!customer_id||!product_name||!Number.isFinite(amount)||amount<0||paid_amount<0||paid_amount>amount){toast('Check customer, product and amounts.');return}
+ const c=customers.find(x=>x.id===customer_id);let waWindow=null;if(c)waWindow=window.open('about:blank','_blank');
+ let end=null;if(warranty_months){let d=new Date(purchase_date+'T12:00:00');d.setMonth(d.getMonth()+warranty_months);end=d.toISOString().slice(0,10)}
+ let {error}=await sb.from('purchases').insert({customer_id,product_name,amount,paid_amount,purchase_date,warranty_months,warranty_end:end});
+ if(error){if(waWindow)waWindow.close();toast(error.message);return}
+ toast('Purchase saved. Opening thank-you message…');
+ if(c&&waWindow){let phone=c.phone.replace(/\D/g,'');if(phone.length===10)phone='91'+phone;let msg=`Namaste ${c.name} ji! 🙏 NAVKAR Kitchen & Home Appliances se ${product_name} kharidne ke liye dhanyavaad. Aapki purchase ke liye hum aabhari hain. Aapka din shubh ho!`;waWindow.location.href=`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`}
+ else toast('Purchase saved. WhatsApp popup blocked; open customer WhatsApp manually.');
+ $('pProduct').value='';$('pAmount').value='';$('pPaid').value='0';$('pWarranty').value='0';await loadPurchases();
+};
+async function loadPurchases(){let id=$('purchaseCustomer').value;if(!id){$('purchaseList').textContent='Add a customer first.';return}let {data,error}=await sb.from('purchases').select('*').eq('customer_id',id).order('purchase_date',{ascending:false});if(error){$('purchaseList').textContent=error.message;return}$('purchaseList').innerHTML=(data||[]).map(p=>`<div class="item"><div class="grow"><strong>${esc(p.product_name)}</strong><span class="muted">${esc(p.purchase_date)} · Warranty: ${p.warranty_months||0} months</span></div><div><strong>₹${Number(p.amount).toLocaleString('en-IN')}</strong><div class="muted small">Paid ₹${Number(p.paid_amount).toLocaleString('en-IN')}</div><button class="danger" style="padding:6px 9px;font-size:11px;margin-top:6px" onclick="deletePurchase('${p.id}','${id}')">Delete</button></div></div>`).join('')||'No purchases for this customer.'}
 async function loadReminders(){
  const today=new Date(),key=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,todayKey=key(today);
  const plus=(s,n)=>{let d=new Date(s+'T12:00:00');d.setDate(d.getDate()+n);return key(d)};
