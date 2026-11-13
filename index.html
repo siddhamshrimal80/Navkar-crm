@@ -130,7 +130,12 @@ async function openCustomer(id){
  showTab('customerDetail');
  let {data,error}=await sb.from('purchases').select('*').eq('customer_id',id).order('purchase_date',{ascending:false});
  if(error){$('customerDetailPurchases').textContent=error.message;return}
- $('customerDetailPurchases').innerHTML=(data||[]).map(x=>`<div class="item"><div class="grow"><strong>${esc(x.product_name)}</strong><span class="muted">${esc(x.purchase_date)}</span></div><div><strong>₹${Number(x.amount||0).toLocaleString('en-IN')}</strong><div class="muted small">Paid ₹${Number(x.paid_amount||0).toLocaleString('en-IN')}</div></div></div>`).join('')||'No purchases recorded for this customer.';
+ const rows=data||[];
+ const totalBill=rows.reduce((sum,x)=>sum+Number(x.amount||0),0);
+ const totalPaid=rows.reduce((sum,x)=>sum+Number(x.paid_amount||0),0);
+ const totalPending=rows.reduce((sum,x)=>sum+Math.max(0,Number(x.amount||0)-Number(x.paid_amount||0)),0);
+ const summary=`<div class="stats" style="margin-bottom:12px"><div class="stat"><span class="muted">Total bill</span><b>₹${totalBill.toLocaleString('en-IN')}</b></div><div class="stat"><span class="muted">Total paid</span><b>₹${totalPaid.toLocaleString('en-IN')}</b></div><div class="stat" style="grid-column:1/-1"><span class="muted">Pending amount</span><b style="color:var(--red)">₹${totalPending.toLocaleString('en-IN')}</b></div></div>`;
+ $('customerDetailPurchases').innerHTML=summary+(rows.map(x=>{const bill=Number(x.amount||0),paid=Number(x.paid_amount||0),pending=Math.max(0,bill-paid);return `<div class="item"><div class="grow"><strong>${esc(x.product_name)}</strong><span class="muted">${esc(x.purchase_date)}</span></div><div style="text-align:right"><strong>Bill ₹${bill.toLocaleString('en-IN')}</strong><div class="muted small">Paid ₹${paid.toLocaleString('en-IN')}</div><div class="small" style="color:var(--red);font-weight:700">Pending ₹${pending.toLocaleString('en-IN')}</div></div></div>`}).join('')||'No purchases recorded for this customer.');
 }
 function markFeedbackSent(id){
  let sent=JSON.parse(localStorage.getItem('navkar_feedback_sent')||'{}');
