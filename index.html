@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#20201e">
+<link rel="manifest" href="manifest.json">
+<title>NAVKAR CRM</title>
+<style>
+:root{--ink:#242320;--muted:#77716a;--paper:#f7f5f1;--white:#fff;--copper:#a8794d;--line:#e8e2d9;--green:#236b49;--red:#a33b32}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px system-ui,-apple-system,Segoe UI,sans-serif}
+header{background:#20201e;color:#fff;padding:18px 18px 16px;position:sticky;top:0;z-index:3}
+.brand{display:flex;align-items:center;gap:12px}.mark{width:42px;height:42px;border-radius:12px;background:var(--copper);display:grid;place-items:center;font-weight:800;color:#fff}
+.brand strong{display:block;letter-spacing:2px;font-size:19px}.brand small{color:#d8b995;letter-spacing:1px;font-size:10px}
+main{max-width:760px;margin:auto;padding:16px 14px 92px}.hidden{display:none!important}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:15px;margin:12px 0;box-shadow:0 2px 8px #2a21100a}
+h1{font-size:23px;margin:8px 0 4px}h2{font-size:18px;margin:5px 0 12px}.muted{color:var(--muted);font-size:13px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}.stat{background:#fff;border:1px solid var(--line);border-radius:15px;padding:14px}.stat b{display:block;font-size:24px;margin-top:5px}
+button{border:0;border-radius:11px;padding:12px 15px;background:var(--ink);color:#fff;font-weight:650;font-size:14px;cursor:pointer}
+button.secondary{background:#eee8df;color:var(--ink)}button.copper{background:var(--copper)}button.green{background:var(--green)}button.danger{background:#f8e9e7;color:var(--red)}
+input,textarea,select{width:100%;border:1px solid #d9d2c9;border-radius:10px;padding:12px;background:#fff;color:var(--ink);font:inherit;margin:5px 0 12px}
+label{display:block;font-size:13px;font-weight:650;margin-top:8px}.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:8px 3px calc(8px + env(safe-area-inset-bottom));z-index:5}
+nav button{background:transparent;color:#706a62;padding:8px 5px;font-size:11px;flex:1}nav button.active{color:var(--copper);background:#f5eee6}
+.item{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}.item:last-child{border:0}.avatar{width:38px;height:38px;border-radius:50%;background:#eee5da;color:#946d48;display:grid;place-items:center;font-weight:700}
+.item .grow{flex:1;min-width:0}.item strong{display:block}.pill{font-size:11px;border-radius:20px;padding:4px 8px;background:#f1ebe3;color:#8a603b}
+#toast{position:fixed;bottom:80px;left:16px;right:16px;background:#242320;color:white;padding:12px;border-radius:10px;display:none;z-index:9}
+.small{font-size:12px}.center{text-align:center;padding:28px 8px}.topline{display:flex;justify-content:space-between;align-items:center;gap:8px}
+a{color:var(--green);font-weight:650;text-decoration:none}
+</style>
+</head>
+<body>
+<header><div class="brand"><div class="mark">N</div><div><strong>NAVKAR</strong><small>KITCHEN & HOME APPLIANCES · CRM</small></div><div style="margin-left:auto" id="userBadge" class="muted"></div></div></header>
+<main>
+<section id="setup">
+ <div class="card">
+  <h1>Connect NAVKAR CRM</h1>
+  <p class="muted">Enter your Supabase project details once. The publishable key is designed for browser use; never enter a secret/service-role key here.</p>
+  <label>Supabase Project URL</label><input id="projectUrl" placeholder="https://your-project.supabase.co" autocomplete="url">
+  <label>Supabase Publishable Key</label><input id="publicKey" placeholder="sb_publishable_..." autocomplete="off">
+  <button class="copper" style="width:100%" id="saveConfig">Save connection</button>
+  <p class="muted small">This starter stores the URL and publishable key in this browser on this device. Do not use a shared/public phone.</p>
+ </div>
+</section>
+<section id="login" class="hidden">
+ <div class="card">
+  <h1>Welcome back</h1><p class="muted">Owner sign-in · Private access</p>
+  <label>Email</label><input id="email" type="email" value="siddhamshrimal80@gmail.com" autocomplete="username">
+  <label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Your Supabase user password">
+  <button id="signIn" class="copper" style="width:100%">Sign in</button>
+  <p class="muted small">Use the password you set when creating the Supabase Auth user. It is not stored by this app.</p>
+ </div>
+</section>
+<section id="app" class="hidden">
+ <div id="dashboard">
+  <h1>Namaste, Siddham 👋</h1><p class="muted">Your customer relationships, neatly organised.</p>
+  <div class="stats">
+   <div class="stat"><span class="muted">Customers</span><b id="customerCount">0</b></div>
+   <div class="stat"><span class="muted">Purchase value</span><b id="salesTotal">₹0</b></div>
+  </div>
+  <div class="card"><div class="topline"><h2>Quick actions</h2><span class="pill">OWNER</span></div><div class="row"><button class="copper" onclick="showTab('add')">+ Add customer</button><button class="secondary" onclick="showTab('customers')">View customers</button></div></div>
+  <div class="card"><h2>Recent customers</h2><div id="recentList" class="muted">No customers yet.</div></div>
+ </div>
+ <div id="customers" class="hidden">
+  <div class="topline"><h1>Customers</h1><button class="copper" onclick="showTab('add')">+ Add</button></div>
+  <input id="search" placeholder="Search name or mobile number">
+  <div class="card" id="customerList">Loading customers…</div>
+ </div>
+ <div id="add" class="hidden">
+  <h1>Add customer</h1><div class="card">
+   <label>Customer name *</label><input id="cName" placeholder="Full name">
+   <label>Mobile number *</label><input id="cPhone" type="tel" inputmode="numeric" placeholder="10-digit mobile number">
+   <label>Address</label><textarea id="cAddress" rows="2" placeholder="Address (optional)"></textarea>
+   <div class="row"><div><label>Birthday</label><input id="cBirthday" type="date"></div><div><label>Anniversary</label><input id="cAnniversary" type="date"></div></div>
+   <label>Notes</label><textarea id="cNotes" rows="2" placeholder="Preferences or notes"></textarea>
+   <button class="copper" id="saveCustomer" style="width:100%">Save customer</button>
+  </div>
+ </div>
+ <div id="purchases" class="hidden">
+  <h1>Purchase history</h1><p class="muted">Select a customer to add a purchase or view their recorded purchases.</p>
+  <div class="card"><label>Customer</label><select id="purchaseCustomer"></select><label>Product name</label><input id="pProduct" placeholder="e.g. Mixer Grinder"><div class="row"><div><label>Bill amount (₹)</label><input id="pAmount" type="number" min="0" step="0.01"></div><div><label>Paid amount (₹)</label><input id="pPaid" type="number" min="0" step="0.01" value="0"></div></div><div class="row"><div><label>Purchase date</label><input id="pDate" type="date"></div><div><label>Warranty (months)</label><input id="pWarranty" type="number" min="0" value="0"></div></div><button class="copper" id="savePurchase" style="width:100%">Save purchase</button></div>
+  <div class="card"><h2>Purchase records</h2><div id="purchaseList" class="muted">Select a customer.</div></div>
+ </div>
+ <div id="reminders" class="hidden"><h1>Reminders</h1><div class="card"><h2>Upcoming birthdays & anniversaries</h2><div id="reminderList" class="muted">Loading…</div></div><div class="card"><h2>Warranty reminders</h2><div id="warrantyList" class="muted">Loading…</div></div></div>
+ <div class="card"><button class="secondary" id="refresh" style="width:100%">Refresh data</button> <button class="danger" id="signOut" style="width:100%;margin-top:8px">Sign out</button></div>
+</section>
+</main>
+<nav id="nav" class="hidden">
+ <button data-tab="dashboard" class="active">⌂<br>Home</button><button data-tab="customers">♙<br>Customers</button><button data-tab="purchases">▣<br>Purchases</button><button data-tab="reminders">♡<br>Reminders</button>
+</nav>
+<div id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+let sb=null, customers=[];
+const $=id=>document.getElementById(id);
+function toast(s){$('toast').textContent=s;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',3500)}
+function section(id){['setup','login','app'].forEach(x=>$(x).classList.toggle('hidden',x!==id));$('nav').classList.toggle('hidden',id!=='app')}
+function showTab(id){['dashboard','customers','add','purchases','reminders'].forEach(x=>$(x).classList.toggle('hidden',x!==id));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));if(id==='customers')renderCustomers();if(id==='purchases')loadPurchases();if(id==='reminders')loadReminders()}
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+function initClient(url,key){if(!window.supabase){toast('Connection library did not load. Check internet and reload.');return false}sb=window.supabase.createClient(url,key);return true}
+async function start(){
+ const url=localStorage.getItem('navkar_url'),key=localStorage.getItem('navkar_key');
+ if(!url||!key){section('setup');return}
+ if(!initClient(url,key))return;
+ const {data:{session}}=await sb.auth.getSession();
+ if(session){section('app');$('userBadge').textContent='OWNER';await loadAll()}else section('login');
+}
+$('saveConfig').onclick=()=>{let u=$('projectUrl').value.trim().replace(/\/$/,''),k=$('publicKey').value.trim();if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(u)||!k.startsWith('sb_publishable_')){toast('Please enter the correct Project URL and sb_publishable key.');return}localStorage.setItem('navkar_url',u);localStorage.setItem('navkar_key',k);location.reload()};
+$('signIn').onclick=async()=>{let email=$('email').value.trim(),password=$('password').value;if(!email||!password){toast('Enter email and password.');return}let {error}=await sb.auth.signInWithPassword({email,password});if(error){toast(error.message);return}section('app');$('userBadge').textContent='OWNER';await loadAll()};
+$('signOut').onclick=async()=>{await sb.auth.signOut();$('password').value='';section('login')};
+$('refresh').onclick=loadAll;
+async function loadAll(){await loadCustomers();showTab('dashboard')}
+async function loadCustomers(){let {data,error}=await sb.from('customers').select('*').order('created_at',{ascending:false});if(error){toast(error.message);return}customers=data||[];$('customerCount').textContent=customers.length;let {data:p}=await sb.from('purchases').select('amount');let total=(p||[]).reduce((a,x)=>a+Number(x.amount||0),0);$('salesTotal').textContent='₹'+total.toLocaleString('en-IN');$('recentList').innerHTML=customers.slice(0,4).map(c=>`<div class="item"><div class="avatar">${esc(c.name[0]||'C')}</div><div class="grow"><strong>${esc(c.name)}</strong><span class="muted">${esc(c.phone)}</span></div></div>`).join('')||'No customers yet.';renderCustomers();fillCustomerSelect()}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function renderCustomers(){let q=($('search').value||'').toLowerCase();let list=customers.filter(c=>(c.name+' '+c.phone).toLowerCase().includes(q));$('customerList').innerHTML=list.map(c=>`<div class="item"><div class="avatar">${esc(c.name[0]||'C')}</div><div class="grow"><strong>${esc(c.name)}</strong><span class="muted">${esc(c.phone)}</span><div class="small muted">${esc(c.address||'')}</div></div><a href="https://wa.me/91${encodeURIComponent(c.phone.replace(/\D/g,''))}" target="_blank" rel="noopener">WhatsApp</a></div>`).join('')||'<div class="center muted">No customers found.</div>'}
+$('search').addEventListener('input',renderCustomers);
+$('saveCustomer').onclick=async()=>{let name=$('cName').value.trim(),phone=$('cPhone').value.replace(/\D/g,'');if(!name||!/^[6-9]\d{9}$/.test(phone)){toast('Enter customer name and valid 10-digit Indian mobile.');return}let {error}=await sb.from('customers').insert({name,phone,address:$('cAddress').value.trim()||null,birthday:$('cBirthday').value||null,anniversary:$('cAnniversary').value||null,notes:$('cNotes').value.trim()||null});if(error){toast(error.message);return}['cName','cPhone','cAddress','cBirthday','cAnniversary','cNotes'].forEach(x=>$(x).value='');toast('Customer saved.');await loadCustomers();showTab('customers')};
+function fillCustomerSelect(){$('purchaseCustomer').innerHTML=customers.map(c=>`<option value="${c.id}">${esc(c.name)} · ${esc(c.phone)}</option>`).join('')}
+$('purchaseCustomer').onchange=loadPurchases;
+$('savePurchase').onclick=async()=>{let customer_id=$('purchaseCustomer').value,product_name=$('pProduct').value.trim(),amount=Number($('pAmount').value),paid_amount=Number($('pPaid').value||0),purchase_date=$('pDate').value||new Date().toISOString().slice(0,10),warranty_months=Number($('pWarranty').value||0);if(!customer_id||!product_name||!Number.isFinite(amount)||amount<0||paid_amount<0||paid_amount>amount){toast('Check customer, product and amounts.');return}let end=null;if(warranty_months){let d=new Date(purchase_date+'T12:00:00');d.setMonth(d.getMonth()+warranty_months);end=d.toISOString().slice(0,10)}let {error}=await sb.from('purchases').insert({customer_id,product_name,amount,paid_amount,purchase_date,warranty_months,warranty_end:end});if(error){toast(error.message);return}toast('Purchase saved.');$('pProduct').value='';$('pAmount').value='';$('pPaid').value='0';$('pWarranty').value='0';await loadPurchases()};
+async function loadPurchases(){let id=$('purchaseCustomer').value;if(!id){$('purchaseList').textContent='Add a customer first.';return}let {data,error}=await sb.from('purchases').select('*').eq('customer_id',id).order('purchase_date',{ascending:false});if(error){$('purchaseList').textContent=error.message;return}$('purchaseList').innerHTML=(data||[]).map(p=>`<div class="item"><div class="grow"><strong>${esc(p.product_name)}</strong><span class="muted">${esc(p.purchase_date)} · Warranty: ${p.warranty_months||0} months</span></div><div><strong>₹${Number(p.amount).toLocaleString('en-IN')}</strong><div class="muted small">Paid ₹${Number(p.paid_amount).toLocaleString('en-IN')}</div></div></div>`).join('')||'No purchases for this customer.'}
+async function loadReminders(){let {data,error}=await sb.from('customers').select('name,phone,birthday,anniversary');if(error){toast(error.message);return}let today=new Date(),md=d=>d?d.slice(5):'',key=today.toISOString().slice(5,10);let upcoming=(data||[]).filter(c=>md(c.birthday)===key||md(c.anniversary)===key);$('reminderList').innerHTML=upcoming.map(c=>`<div class="item"><div class="grow"><strong>${esc(c.name)}</strong><span class="muted">${md(c.birthday)===key?'Birthday':'Anniversary'}</span></div><a href="https://wa.me/91${encodeURIComponent(c.phone)}" target="_blank">WhatsApp</a></div>`).join('')||'No birthdays or anniversaries today. Dates are stored; automatic notifications are not enabled in this starter.';let {data:p}=await sb.from('purchases').select('product_name,warranty_end,customer_id').not('warranty_end','is',null);$('warrantyList').innerHTML=(p||[]).filter(x=>x.warranty_end&&x.warranty_end>=today.toISOString().slice(0,10)).map(x=>`<div class="item"><div class="grow"><strong>${esc(x.product_name)}</strong><span class="muted">Expires ${esc(x.warranty_end)}</span></div></div>`).join('')||'No upcoming warranty expiries.'}
+if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+start();
+</script>
+</body></html>
