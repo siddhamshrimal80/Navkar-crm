@@ -86,7 +86,7 @@ a{color:var(--green);font-weight:650;text-decoration:none}
   <div class="card"><label>Customer</label><select id="purchaseCustomer"></select><label>Product name</label><input id="pProduct" placeholder="e.g. Mixer Grinder"><div class="row"><div><label>Bill amount (₹)</label><input id="pAmount" type="number" min="0" step="0.01"></div><div><label>Paid amount (₹)</label><input id="pPaid" type="number" min="0" step="0.01" value="0"></div></div><div class="row"><div><label>Purchase date</label><input id="pDate" type="date"></div><div><label>Warranty (months)</label><input id="pWarranty" type="number" min="0" value="0"></div></div><button class="copper" id="savePurchase" style="width:100%">Save purchase</button></div>
   <div class="card"><h2>Purchase records</h2><div id="purchaseList" class="muted">Select a customer.</div></div>
  </div>
- <div id="reminders" class="hidden"><h1>Reminders</h1><div class="card"><h2>Upcoming birthdays & anniversaries</h2><div id="reminderList" class="muted">Loading…</div></div><div class="card"><h2>Feedback due</h2><p class="muted">Purchase ke 30 din baad customer ko feedback WhatsApp bhejein.</p><div id="feedbackDueList" class="muted">Loading…</div></div><div class="card"><h2>Coming up · Next 7 days</h2><div id="feedbackUpcomingList" class="muted">Loading…</div></div></div>
+ <div id="reminders" class="hidden"><h1>Reminders</h1><div class="card"><h2>Birthdays & anniversaries · Next 7 days</h2><div id="reminderList" class="muted">Loading…</div></div><div class="card"><h2>Pending payments</h2><div id="pendingPaymentList" class="muted">Loading…</div></div><div class="card"><h2>Feedback due</h2><p class="muted">Purchase ke 30 din baad customer ko feedback WhatsApp bhejein.</p><div id="feedbackDueList" class="muted">Loading…</div></div><div class="card"><h2>Coming up · Next 7 days</h2><div id="feedbackUpcomingList" class="muted">Loading…</div></div></div>
  <div class="card"><button class="secondary" id="refresh" style="width:100%">Refresh data</button> <button class="danger" id="signOut" style="width:100%;margin-top:8px">Sign out</button></div>
 </section>
 </main>
@@ -137,14 +137,67 @@ async function openCustomer(id){
  const summary=`<div class="stats" style="margin-bottom:12px"><div class="stat"><span class="muted">Total bill</span><b>₹${totalBill.toLocaleString('en-IN')}</b></div><div class="stat"><span class="muted">Total paid</span><b>₹${totalPaid.toLocaleString('en-IN')}</b></div><div class="stat" style="grid-column:1/-1"><span class="muted">Pending amount</span><b style="color:var(--red)">₹${totalPending.toLocaleString('en-IN')}</b></div></div>`;
  $('customerDetailPurchases').innerHTML=summary+(rows.map(x=>{const bill=Number(x.amount||0),paid=Number(x.paid_amount||0),pending=Math.max(0,bill-paid);return `<div class="item"><div class="grow"><strong>${esc(x.product_name)}</strong><span class="muted">${esc(x.purchase_date)}</span></div><div style="text-align:right"><strong>Bill ₹${bill.toLocaleString('en-IN')}</strong><div class="muted small">Paid ₹${paid.toLocaleString('en-IN')}</div><div class="small" style="color:var(--red);font-weight:700">Pending ₹${pending.toLocaleString('en-IN')}</div></div></div>`}).join('')||'No purchases recorded for this customer.');
 }
+async function loadReminders(){
+ const today=new Date();
+ const dateKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+ const todayKey=dateKey(today);
+ const addDays=(date,n)=>{const d=new Date(date+'T12:00:00');d.setDate(d.getDate()+n);return dateKey(d)};
+ const cleanPhone=phone=>String(phone||'').replace(/\D/g,'');
+ const wa=(phone,msg)=>{let n=cleanPhone(phone);if(n.length===10)n='91'+n;return `https://wa.me/${n}?text=${encodeURIComponent(msg)}`};
+
+ const [{data:people,error:peopleError},{data:purchases,error:purchaseError}]=await Promise.all([
+   sb.from('customers').select('id,name,phone,birthday,anniversary'),
+   sb.from('purchases').select('id,customer_id,product_name,amount,paid_amount,purchase_date')
+ ]);
+ if(peopleError||purchaseError){toast((peopleError||purchaseError).message);return}
+ const customerById=Object.fromEntries((people||[]).map(c=>[c.id,c]));
+
+ // Birthdays and anniversaries occurring today or within the next 7 days.
+ const upcoming=[];
+ for(const c of (people||[])){
+   for(const field of ['birthday','anniversary']){
+     if(!c[field])continue;
+     const md=String(c[field]).slice(5,10);
+     for(let offset=0;offset<=7;offset++){
+       const d=new Date(today);d.setDate(d.getDate()+offset);
+       const target=`${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+       if(md===target){upcoming.push({c,field,day:dateKey(d),offset});break}
+     }
+   }
+ }
+ $('reminderList').innerHTML=upcoming.sort((a,b)=>a.day.localeCompare(b.day)).map(x=>{
+   const label=x.field==='birthday'?'Birthday':'Anniversary';
+   const msg=`Namaste ${x.c.name} ji! NAVKAR Kitchen & Home Appliances ki taraf se aapko ${label==='Birthday'?'janmdin':'anniversary'} ki hardik shubhkamnayein! 🙏`;
+   return `<div class="item"><div class="grow"><strong>${esc(x.c.name)}</strong><span class="muted">${label} · ${x.offset===0?'Today':x.day}</span></div><a href="${wa(x.c.phone,msg)}" target="_blank" rel="noopener">WhatsApp</a></div>`;
+ }).join('')||'Agale 7 din mein koi birthday ya anniversary nahi hai.';
+
+ // Pending amount, grouped by customer.
+ const totals={};
+ for(const p of (purchases||[])){
+   const pending=Math.max(0,Number(p.amount||0)-Number(p.paid_amount||0));
+   if(pending<=0)continue;
+   if(!totals[p.customer_id])totals[p.customer_id]={amount:0,items:0};
+   totals[p.customer_id].amount+=pending;
+   totals[p.customer_id].items+=1;
+ }
+ const pendingRows=Object.entries(totals).map(([id,v])=>({c:customerById[id],...v})).filter(x=>x.c).sort((a,b)=>b.amount-a.amount);
+ $('pendingPaymentList').innerHTML=pendingRows.map(x=>{
+   const msg=`Namaste ${x.c.name} ji, NAVKAR Kitchen & Home Appliances ki taraf se vinamra yaad-dihani: aapka ₹${x.amount.toLocaleString('en-IN')} payment pending hai. Kripya suvidha anusar payment kar dein. Dhanyavaad.`;
+   return `<div class="item"><div class="grow"><strong>${esc(x.c.name)}</strong><span class="muted">${esc(x.c.phone)} · ${x.items} pending bill(s)</span></div><div style="text-align:right"><strong style="color:var(--red)">₹${x.amount.toLocaleString('en-IN')}</strong><div><a href="${wa(x.c.phone,msg)}" target="_blank" rel="noopener">WhatsApp reminder</a></div></div></div>`;
+ }).join('')||'Kisi customer ka payment pending nahi hai.';
+
+ // Feedback reminders: 30 days after purchase, plus next 7 days preview.
+ const sent=JSON.parse(localStorage.getItem('navkar_feedback_sent')||'{}');
+ const feedback=(purchases||[]).map(p=>({...p,c:customerById[p.customer_id],due:addDays(p.purchase_date,30)})).filter(p=>p.c);
+ const due=feedback.filter(p=>p.due<=todayKey&&!sent[p.id]).sort((a,b)=>a.due.localeCompare(b.due));
+ const soon=feedback.filter(p=>p.due>todayKey&&p.due<=addDays(todayKey,7)&&!sent[p.id]).sort((a,b)=>a.due.localeCompare(b.due));
+ const feedbackRow=p=>{
+   const msg=`Namaste ${p.c.name} ji! 🙏 Aapne NAVKAR Kitchen & Home Appliances se ${p.product_name} kharida tha. Humein aapka experience jaana hai. Product kaisa chal raha hai? Kripya apna feedback zaroor dein. Dhanyavaad!`;
+   return `<div class="item"><div class="grow"><strong>${esc(p.c.name)}</strong><span class="muted">${esc(p.product_name)} · Feedback due: ${esc(p.due)}</span><div class="row" style="margin-top:8px"><a href="${wa(p.c.phone,msg)}" target="_blank" rel="noopener">Send feedback</a><button class="secondary" style="padding:7px 9px;font-size:12px" onclick="markFeedbackSent('${p.id}')">Mark sent</button></div></div></div>`;
+ };
+ $('feedbackDueList').innerHTML=due.map(feedbackRow).join('')||'Abhi koi feedback reminder due nahi hai.';
+ $('feedbackUpcomingList').innerHTML=soon.map(feedbackRow).join('')||'Agale 7 din mein koi feedback reminder nahi hai.';
+}
 function markFeedbackSent(id){
  let sent=JSON.parse(localStorage.getItem('navkar_feedback_sent')||'{}');
- sent[id]=new Date().toISOString();
- localStorage.setItem('navkar_feedback_sent',JSON.stringify(sent));
- toast('Feedback reminder marked as sent on this device.');
- loadReminders();
-}
-if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
-start();
-</script>
-</body></html>
+ sen
