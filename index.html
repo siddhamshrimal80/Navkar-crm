@@ -1,4 +1,4 @@
-<!doctype html>
+doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -64,7 +64,7 @@ a{color:var(--green);font-weight:650;text-decoration:none}
  </div>
  <div id="customers" class="hidden">
   <div class="topline"><h1>Customers</h1><button class="copper" onclick="showTab('add')">+ Add</button></div>
-  <input id="search" placeholder="Search name or mobile number">
+  <input id="search" placeholder="Search name, mobile, profession or business">
   <div class="card" id="customerList">Loading customers…</div>
  </div>
  <div id="add" class="hidden">
@@ -72,6 +72,7 @@ a{color:var(--green);font-weight:650;text-decoration:none}
    <label>Customer name *</label><input id="cName" placeholder="Full name">
    <label>Mobile number *</label><input id="cPhone" type="tel" inputmode="numeric" placeholder="10-digit mobile number">
    <label>Address</label><textarea id="cAddress" rows="2" placeholder="Address (optional)"></textarea>
+   <label>Profession / Business</label><input id="cProfession" placeholder="e.g. Business, Teacher, Farmer, Service">
    <div class="row"><div><label>Birthday</label><input id="cBirthday" type="date"></div><div><label>Anniversary</label><input id="cAnniversary" type="date"></div></div>
    <label>Notes</label><textarea id="cNotes" rows="2" placeholder="Preferences or notes"></textarea>
    <button class="copper" id="saveCustomer" style="width:100%">Save customer</button>
@@ -124,14 +125,14 @@ async function loadBusinessReport(){if(!sb)return;const period=$('reportPeriod')
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function renderCustomers(){
  let q=($('search').value||'').toLowerCase();
- let list=customers.filter(c=>(c.name+' '+c.phone).toLowerCase().includes(q));
- $('customerList').innerHTML=list.map(c=>`<div class="item customer-tap" role="button" tabindex="0" onclick="openCustomer('${c.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCustomer('${c.id}')}"><div class="avatar">${esc(c.name[0]||'C')}</div><div class="grow"><strong>${esc(c.name)}</strong><span class="muted">${esc(c.phone)}</span><div class="small muted">${esc(c.address||'')}</div><span class="small" style="color:var(--copper)">Tap to view details →</span></div></div>`).join('')||'<div class="center muted">No customers found.</div>';
+ let list=customers.filter(c=>(c.name+' '+c.phone+' '+(c.profession||'')).toLowerCase().includes(q));
+ $('customerList').innerHTML=list.map(c=>`<div class="item customer-tap" role="button" tabindex="0" onclick="openCustomer('${c.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCustomer('${c.id}')}"><div class="avatar">${esc(c.name[0]||'C')}</div><div class="grow"><strong>${esc(c.name)}</strong><span class="muted">${esc(c.phone)}</span><div class="small muted">${esc(c.address||'')}${c.profession?' · '+esc(c.profession):''}</div><span class="small" style="color:var(--copper)">Tap to view details →</span></div></div>`).join('')||'<div class="center muted">No customers found.</div>';
 }
 $('search').addEventListener('input',renderCustomers);
 
 async function openCustomer(id){
  let c=customers.find(x=>x.id===id);if(!c){toast('Customer not found.');return}
- $('customerDetailCard').innerHTML=`<div class="item"><div class="avatar">${esc(c.name[0]||'C')}</div><div class="grow"><strong>${esc(c.name)}</strong><span class="muted">${esc(c.phone)}</span></div></div><p><strong>Address:</strong> ${esc(c.address||'Not added')}</p><p><strong>Birthday:</strong> ${esc(c.birthday||'Not added')}</p><p><strong>Anniversary:</strong> ${esc(c.anniversary||'Not added')}</p><p><strong>Notes:</strong> ${esc(c.notes||'None')}</p><a href="https://wa.me/91${encodeURIComponent(c.phone.replace(/\\D/g,''))}" target="_blank" rel="noopener">Chat on WhatsApp</a><button class="danger" style="width:100%;margin-top:16px" onclick="deleteCustomer('${c.id}')">Delete this customer</button>`;
+ $('customerDetailCard').innerHTML=`<div class="item"><div class="avatar">${esc(c.name[0]||'C')}</div><div class="grow"><strong>${esc(c.name)}</strong><span class="muted">${esc(c.phone)}</span></div></div><p><strong>Address:</strong> ${esc(c.address||'Not added')}</p><p><strong>Profession / Business:</strong> ${esc(c.profession||'Not added')}</p><p><strong>Birthday:</strong> ${esc(c.birthday||'Not added')}</p><p><strong>Anniversary:</strong> ${esc(c.anniversary||'Not added')}</p><p><strong>Notes:</strong> ${esc(c.notes||'None')}</p><a href="https://wa.me/91${encodeURIComponent(c.phone.replace(/\\D/g,''))}" target="_blank" rel="noopener">Chat on WhatsApp</a><button class="danger" style="width:100%;margin-top:16px" onclick="deleteCustomer('${c.id}')">Delete this customer</button>`;
  $('customerDetailPurchases').textContent='Loading…';showTab('customerDetail');
  let {data,error}=await sb.from('purchases').select('*').eq('customer_id',id).order('purchase_date',{ascending:false});
  if(error){$('customerDetailPurchases').textContent='Could not load purchases: '+error.message;return}
@@ -156,11 +157,47 @@ async function deletePurchase(purchaseId,customerId){
  if(error){toast('Could not delete purchase: '+error.message);return}
  toast('Purchase record deleted.');await loadCustomers();if(fromDetail)await openCustomer(customerId);else{showTab('purchases');$('purchaseCustomer').value=customerId;await loadPurchases()}
 }
-$('saveCustomer').onclick=async()=>{let name=$('cName').value.trim(),phone=$('cPhone').value.replace(/\D/g,'');if(!name||!/^[6-9]\d{9}$/.test(phone)){toast('Enter customer name and valid 10-digit Indian mobile.');return}let {error}=await sb.from('customers').insert({name,phone,address:$('cAddress').value.trim()||null,birthday:$('cBirthday').value||null,anniversary:$('cAnniversary').value||null,notes:$('cNotes').value.trim()||null});if(error){toast(error.message);return}['cName','cPhone','cAddress','cBirthday','cAnniversary','cNotes'].forEach(x=>$(x).value='');toast('Customer saved.');await loadCustomers();showTab('customers')};
+$('saveCustomer').onclick=async()=>{let name=$('cName').value.trim(),phone=$('cPhone').value.replace(/\D/g,'');if(!name||!/^[6-9]\d{9}$/.test(phone)){toast('Enter customer name and valid 10-digit Indian mobile.');return}let {error}=await sb.from('customers').insert({name,phone,address:$('cAddress').value.trim()||null,profession:$('cProfession').value.trim()||null,birthday:$('cBirthday').value||null,anniversary:$('cAnniversary').value||null,notes:$('cNotes').value.trim()||null});if(error){toast(error.message);return}['cName','cPhone','cAddress','cProfession','cBirthday','cAnniversary','cNotes'].forEach(x=>$(x).value='');toast('Customer saved.');await loadCustomers();showTab('customers')};
 function fillCustomerSelect(){$('purchaseCustomer').innerHTML=customers.map(c=>`<option value="${c.id}">${esc(c.name)} · ${esc(c.phone)}</option>`).join('')}
 $('purchaseCustomer').onchange=loadPurchases;
 $('savePurchase').onclick=async()=>{
  let customer_id=$('purchaseCustomer').value,product_name=$('pProduct').value.trim(),amount=Number($('pAmount').value),paid_amount=Number($('pPaid').value||0),purchase_date=$('pDate').value||new Date().toISOString().slice(0,10),warranty_months=Number($('pWarranty').value||0);
  if(!customer_id||!product_name||!Number.isFinite(amount)||amount<0||paid_amount<0||paid_amount>amount){toast('Check customer, product and amounts.');return}
  const c=customers.find(x=>x.id===customer_id);let waWindow=null;if(c)waWindow=window.open('about:blank','_blank');
- le
+ let end=null;if(warranty_months){let d=new Date(purchase_date+'T12:00:00');d.setMonth(d.getMonth()+warranty_months);end=d.toISOString().slice(0,10)}
+ let {error}=await sb.from('purchases').insert({customer_id,product_name,amount,paid_amount,purchase_date,warranty_months,warranty_end:end});
+ if(error){if(waWindow)waWindow.close();toast(error.message);return}
+ toast('Purchase saved. Opening thank-you message…');
+ if(c&&waWindow){let phone=c.phone.replace(/\D/g,'');if(phone.length===10)phone='91'+phone;let pending=Math.max(0,amount-paid_amount);let msg=`NAVKAR KITCHEN & HOME APPLIANCES\n\nNamaste ${c.name} ji! 🙏 Aapki purchase ke liye dhanyavaad.\n\nBILL DETAILS\nProduct: ${product_name}\nPurchase Date: ${purchase_date}\nBill Amount: ₹${amount.toLocaleString('en-IN')}\nPaid Amount: ₹${paid_amount.toLocaleString('en-IN')}\nPending Amount: ₹${pending.toLocaleString('en-IN')}\nWarranty: ${warranty_months} months\n\nAapke vishwas ke liye dhanyavaad! 🙏`;waWindow.location.href=`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`}
+ else toast('Purchase saved. WhatsApp popup blocked; open customer WhatsApp manually.');
+ $('pProduct').value='';$('pAmount').value='';$('pPaid').value='0';$('pWarranty').value='0';await loadPurchases();await loadBusinessReport();
+};
+async function loadPurchases(){let id=$('purchaseCustomer').value;if(!id){$('purchaseList').textContent='Add a customer first.';return}let {data,error}=await sb.from('purchases').select('*').eq('customer_id',id).order('purchase_date',{ascending:false});if(error){$('purchaseList').textContent=error.message;return}$('purchaseList').innerHTML=(data||[]).map(p=>`<div class="item"><div class="grow"><strong>${esc(p.product_name)}</strong><span class="muted">${esc(p.purchase_date)} · Warranty: ${p.warranty_months||0} months</span></div><div><strong>₹${Number(p.amount).toLocaleString('en-IN')}</strong><div class="muted small">Paid ₹${Number(p.paid_amount).toLocaleString('en-IN')}</div><button class="danger" style="padding:6px 9px;font-size:11px;margin-top:6px" onclick="deletePurchase('${p.id}','${id}')">Delete</button></div></div>`).join('')||'No purchases for this customer.'}
+async function loadReminders(){
+ const today=new Date(),key=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,todayKey=key(today);
+ const plus=(s,n)=>{let d=new Date(s+'T12:00:00');d.setDate(d.getDate()+n);return key(d)};
+ const phone=s=>String(s||'').replace(/\D/g,'');
+ const wa=(n,m)=>{n=phone(n);if(n.length===10)n='91'+n;return `https://wa.me/${n}?text=${encodeURIComponent(m)}`};
+ try{
+  const [cr,pr]=await Promise.all([sb.from('customers').select('id,name,phone,birthday,anniversary'),sb.from('purchases').select('id,customer_id,product_name,amount,paid_amount,purchase_date')]);
+  if(cr.error)throw cr.error;if(pr.error)throw pr.error;
+  const people=cr.data||[],purchases=pr.data||[],byId=Object.fromEntries(people.map(c=>[c.id,c]));
+  let occasions=[];
+  for(const c of people)for(const field of ['birthday','anniversary'])if(c[field]){
+   const md=String(c[field]).slice(5,10);
+   for(let n=0;n<=7;n++){let d=new Date(today);d.setDate(d.getDate()+n);let target=`${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;if(md===target){occasions.push({c,field,when:key(d),n});break}}
+  }
+  $('reminderList').innerHTML=occasions.map(x=>{let label=x.field==='birthday'?'Birthday':'Anniversary',msg=`Namaste ${x.c.name} ji! NAVKAR Kitchen & Home Appliances ki taraf se aapko hardik ${label==='Birthday'?'janmdin':'anniversary'} ki shubhkamnayein! 🙏`;return `<div class="item"><div class="grow"><strong>${esc(x.c.name)}</strong><span class="muted">${label} · ${x.n===0?'Today':x.when}</span></div><a href="${wa(x.c.phone,msg)}" target="_blank" rel="noopener">WhatsApp</a></div>`}).join('')||'Agale 7 din mein koi birthday ya anniversary nahi hai.';
+  let totals={};for(const p of purchases){let v=Math.max(0,Number(p.amount||0)-Number(p.paid_amount||0));if(v){totals[p.customer_id]??={amount:0,count:0};totals[p.customer_id].amount+=v;totals[p.customer_id].count++}}
+  $('pendingPaymentList').innerHTML=Object.entries(totals).map(([id,v])=>({c:byId[id],...v})).filter(x=>x.c).map(x=>{let msg=`Namaste ${x.c.name} ji, aapka NAVKAR Kitchen & Home Appliances mein ₹${x.amount.toLocaleString('en-IN')} payment pending hai. Kripya suvidha anusar payment kar dein. Dhanyavaad.`;return `<div class="item"><div class="grow"><strong>${esc(x.c.name)}</strong><span class="muted">${esc(x.c.phone)} · ${x.count} pending bill(s)</span></div><div style="text-align:right"><strong style="color:var(--red)">₹${x.amount.toLocaleString('en-IN')}</strong><div><a href="${wa(x.c.phone,msg)}" target="_blank" rel="noopener">WhatsApp reminder</a></div></div></div>`}).join('')||'Kisi customer ka payment pending nahi hai.';
+  let sent=JSON.parse(localStorage.getItem('navkar_feedback_sent')||'{}'),feedback=purchases.filter(p=>p.purchase_date&&byId[p.customer_id]).map(p=>({...p,c:byId[p.customer_id],due:plus(p.purchase_date,30)}));
+  const row=p=>{let msg=`Namaste ${p.c.name} ji! 🙏 Aapne NAVKAR Kitchen & Home Appliances se ${p.product_name} kharida tha. Product kaisa chal raha hai? Kripya apna feedback dein. Dhanyavaad!`;return `<div class="item"><div class="grow"><strong>${esc(p.c.name)}</strong><span class="muted">${esc(p.product_name)} · Feedback due: ${p.due}</span><div class="row" style="margin-top:8px"><a href="${wa(p.c.phone,msg)}" target="_blank" rel="noopener">Send feedback</a><button class="secondary" style="padding:7px 9px;font-size:12px" onclick="markFeedbackSent('${p.id}')">Mark sent</button></div></div></div>`};
+  $('feedbackDueList').innerHTML=feedback.filter(p=>p.due<=todayKey&&!sent[p.id]).sort((a,b)=>a.due.localeCompare(b.due)).map(row).join('')||'Abhi koi feedback reminder due nahi hai.';
+  $('feedbackUpcomingList').innerHTML=feedback.filter(p=>p.due>todayKey&&p.due<=plus(todayKey,7)&&!sent[p.id]).sort((a,b)=>a.due.localeCompare(b.due)).map(row).join('')||'Agale 7 din mein koi feedback reminder nahi hai.';
+ }catch(e){console.error(e);let msg='Reminders load nahi hue: '+(e.message||'Unknown error');['reminderList','pendingPaymentList','feedbackDueList','feedbackUpcomingList'].forEach(id=>$(id).textContent=msg);toast(msg)}
+}
+function markFeedbackSent(id){let sent=JSON.parse(localStorage.getItem('navkar_feedback_sent')||'{}');sent[id]=new Date().toISOString();localStorage.setItem('navkar_feedback_sent',JSON.stringify(sent));toast('Marked as sent.');loadReminders()}
+if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+start();
+</script>
+</body></html>
